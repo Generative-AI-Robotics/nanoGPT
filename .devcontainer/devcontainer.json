@@ -1,0 +1,31 @@
+{
+    "name": "GPT",
+    "dockerFile": "../docker/Dockerfile",
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "terminal.integrated.defaultProfile.linux": "bash"
+            },
+            "extensions": [
+                "dbaeumer.vscode-eslint",
+                "ms-azuretools.vscode-docker",
+                "donjayamanne.git-extension-pack",
+                "ms-vscode.cpptools-extension-pack",
+                "donjayamanne.python-extension-pack",
+                "josetr.cmake-language-support-vscode",
+                "parasoft.vscode-cpptest",
+                "ms-dotnettools.vscode-dotnet-runtime",
+                "ms-iot.vscode-ros",
+                "ms-toolsai.jupyter",
+                "GitHub.vscode-github-actions"
+            ]
+        }
+    },
+    "mounts": [
+        "type=bind,source=/Users/${localEnv:USER}/.ssh,target=/home/dev/.ssh,readonly"
+    ],
+    "forwardPorts": [
+        3000
+    ],
+    "remoteUser": "dev"
+}
