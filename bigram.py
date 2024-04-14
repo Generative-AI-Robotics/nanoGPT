@@ -4,6 +4,14 @@ from torch.nn import functional as F
 torch.manual_seed(1337)
 
 
+# hyperparameters
+max_iters = 20000
+lr = 1e-3
+eval_iters = 500
+batch_size = 32
+block_size = 8
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
 # Read the input corpus
 with open('tiny_shakespeare.txt', 'r', encoding='utf-8') as f:
     text = f.read()
@@ -30,12 +38,27 @@ train_data = data[:n]
 val_data = data[n:]
 
 # Get single batch of data for training
-def get_batch(split='train', block_size=8, batch_size=4):
+def get_batch(split='train'):
     data = train_data if split == 'train' else val_data
     ix = torch.randint(len(data) - block_size, (batch_size,))
     x = torch.stack([data[i : i + block_size] for i in ix])
     y = torch.stack([data[i + 1 : i + block_size + 1] for i in ix])
+    x, y = x.to(device), y.to(device)
     return x, y
+
+@torch.no_grad()
+def estimate_loss():
+    model.eval()
+    out = {}
+    for split in ['train', 'val']:
+        losses = torch.zeros(eval_iters)
+        for k in range(eval_iters):
+            X, Y = get_batch(split=split)
+            logits, loss = model(X, Y)
+            losses[k] = loss.item()
+        out[split] = loss.mean()
+    model.train()
+    return out['train'], out['val']
 
 
 class BigramLanguageModel(nn.Module):
@@ -68,23 +91,25 @@ class BigramLanguageModel(nn.Module):
     
 
 # Create the model and optimizer
-m = BigramLanguageModel(vocab_size)
-optimizer = torch.optim.AdamW(m.parameters(), lr=1e-3)
-batch_size = 32
+model = BigramLanguageModel(vocab_size)
+m = model.to(device)
+optimizer = torch.optim.AdamW(m.parameters(), lr=lr)
 
 # Train the model
-for steps in range(20000):
-    xb, yb = get_batch(split='train', batch_size=batch_size)
+for step in range(max_iters):
+    xb, yb = get_batch(split='train')
     
     logits, loss = m(xb, yb)
     optimizer.zero_grad(set_to_none=True)
     loss.backward()
     optimizer.step()
-    if (steps % 1000 == 0):
-        print("Steps: ", steps, "Loss: ", loss.item())
-    
+    if ((step + 1) % 1000 == 0):
+        train_loss, val_loss = estimate_loss()
+        print(f'Step {step + 1}: train loss {train_loss:.4f}, validation loss {val_loss:.4f}')
+        
 print("Final training loss: ", loss.item())
 
-# Test inference of the trained model
+# generate text from the model
 print("Sample generation after training: ")
-print(decode(m.generate(torch.zeros((1, 1), dtype=torch.long), 500)[0].tolist()))
+context = torch.zeros((1, 1), dtype=torch.long, device=device)
+print(decode(m.generate(context, 500)[0].tolist()))
